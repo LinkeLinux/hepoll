@@ -1,7 +1,23 @@
 #include <public.h>
+#include <thread_pool.h>
 #define MAX_LISTEN 1024
 #define PORT 8888
 #define EVENT 8192
+void do_request(void *arg)
+{
+    int rlen;
+    int infd =*((int *)arg);
+    char buf[100]={'\0'};
+    printf("recv from connect %d\n",infd);
+    rlen =read(infd,buf,sizeof(buf));
+    if(rlen ==0){
+        //epoll_ctl(epfd,EPOLL_CTL_DEL,infd,NULL);
+        close(infd);
+    }
+    else{
+        printf("recv %d bytes,sd:%d\n",rlen,infd);
+    }
+}
 int read_buf(int sd,char *buf,int len)
 {
     int offset=0;
@@ -92,9 +108,17 @@ int main()
     struct sockaddr_in raddr;
     socklen_t rlen;
     int i,index;
+    //request_t r;
     struct epoll_event event;
     struct epoll_event events[EVENT];
     int sd;
+    threadpool_t *pool;
+    pool=thread_init(POOL_SIZE);
+    if (pool==NULL)
+    {
+        printf("init thread pool failed\n");
+        return -1;
+    }
     sd =open_listenfd(PORT);
     if(sd <0)
     {
@@ -133,14 +157,17 @@ int main()
                 set_nonblock(infd);
                 epoll_ctl(epfd,EPOLL_CTL_ADD,infd,&event);
             }else {
+                #if 1
                  if ((events[i].events & EPOLLERR) ||
                     (events[i].events & EPOLLHUP) ||
                     (!(events[i].events & EPOLLIN))) {
-                    log_err("epoll error fd: %d", r->fd);
-                    close(fd);
+                    close(infd);
                     continue;
                 }
-                threadpool_add(tp,do_request,infd);
+                infd =events[i].data.fd;
+                printf("infd is %d\n",infd);
+                thread_add(pool,do_request,infd);
+                #if 0
                 memset(buf,0x00,sizeof(buf));
                 infd =events[i].data.fd;
                 //rlen =read_buf(infd,buf,sizeof(buf));
@@ -152,6 +179,7 @@ int main()
                 else{
                     printf("recv %d bytes,sd:%d\n",rlen,sd);
                 }
+                #endif 
             }
         }
     }

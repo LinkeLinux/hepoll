@@ -1,9 +1,11 @@
 #include <public.h>
 #define SERVER_PORT 8888
 struct sockaddr_in serverAddr;
-void *sendfunc(void *arg)
+int main()
 {
-    
+
+    //客户端只需要一个套接字文件描述符，用于和服务器通信
+
     int clientSocket;
         if((clientSocket = socket(AF_INET, SOCK_STREAM, 0)) < 0)
 
@@ -11,35 +13,9 @@ void *sendfunc(void *arg)
 
             perror("socket");
 
-            return 1;
+            return -1;
 
         }
-    printf("clientSocket:%d\n",clientSocket);
-    if(connect(clientSocket, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) < 0)
-    {
-
-        perror("connect");
-
-        return ;
-
-    }
-    printf("连接到主机...\n");
-    char sendbuf[100];
-    pthread_t pid;
-    pid =pthread_self();
-    memset(sendbuf,0x00,sizeof(sendbuf));
-    sprintf(sendbuf,"hello%d",pid);
-    send(clientSocket, sendbuf, strlen(sendbuf), 0);
-    
-    
-}
-
-int main()
-{
-
-    //客户端只需要一个套接字文件描述符，用于和服务器通信
-
-    int clientSocket;
 
     //描述服务器的socket
 
@@ -61,14 +37,23 @@ int main()
     //inet_addr()函数，将点分十进制IP转换成网络字节序IP
 
     serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    for(i=0;i<10;i++){
-        pthread_create(&pid[i],NULL,sendfunc,NULL);
+    if(connect(clientSocket, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) < 0)
+    {
+
+        perror("connect");
+
+        return ;
+
     }
-
-   sleep(10);
-   close(clientSocket);
-
-
+    printf("连接到主机...\n");
+    memset(sendbuf,0x00,sizeof(sendbuf));
+    sprintf(sendbuf,"hello");
+    int ret;
+    if((ret=send(clientSocket, sendbuf, strlen(sendbuf), 0))>0)
+    {
+        printf("send success:%d\n",ret);
+    }
+    close(clientSocket);
     return 0;
 
 }
