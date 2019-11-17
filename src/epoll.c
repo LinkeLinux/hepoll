@@ -3,6 +3,7 @@
 #define MAX_LISTEN 1024
 #define PORT 8888
 #define EVENT 8192
+int set_nonblock(int fd);
 void do_request(void *arg)
 {
     int rlen;
@@ -74,6 +75,11 @@ int open_listenfd(int port)
     /* Make it a listening socket ready to accept connection requests */
     if (listen(listenfd, MAX_LISTEN) < 0)
         return -1;
+    if (set_nonblock(sd)<0)
+    {
+        perror("set nonblock failed");
+        exit(-1);
+    }
 
     return listenfd;
 }
@@ -97,6 +103,29 @@ int set_nonblock(int fd)
     }
 
     return 0;
+}
+int AddaeEvent(aeEventLoop *el,int fd, int mask)
+{
+    struct epoll_event ev;
+	
+	int op =el->events[fd].mask =AE_NONE ? EPOLL_CTL_ADD:EPOLL_CTL_MOD;
+	if (mask & AE_READABLE)
+	{
+		ev.events =EPOLLIN | EPOLLET;
+	}
+	if (mask & AE_WRITEABLE)
+	{
+		ev.events =EPOLLOUT | EPOLLET;
+	}
+	ev.data.fd =fd;
+	
+	if (epoll_ctl(el->epfd,op,fd,&ev) <0)
+		return -1;
+	return 0;
+}
+int acceptHandle(aeEventLoop *el,int fd, void *clientData,int mask)
+{
+	
 }
 int main()
 {
@@ -129,18 +158,6 @@ int main()
     if (epfd <0)
     {
         perror("epoll_create1"); 
-        exit(-1);
-    }
-    event.data.fd =sd;
-    event.events= EPOLLIN | EPOLLET;
-    if (set_nonblock(sd)<0)
-    {
-        perror("set nonblock failed");
-        exit(-1);
-    }
-    if (epoll_ctl(epfd,EPOLL_CTL_ADD,sd,&event)<0)
-    {
-        perror("epoll_ctl");
         exit(-1);
     }
     //struct timeval tm={3,0};
